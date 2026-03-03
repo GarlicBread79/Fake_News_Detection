@@ -1,7 +1,7 @@
 # Fake News Detection Project
 
 ## Overview
-This project implements a machine learning-based Fake News Detection System using Logistic Regression and a fine-tuned BERT model. The system classifies news articles as either "Real News" or "Fake News" based on the text within an article.
+This project implements a machine learning-based Fake News Detection System using Python and uses two AI models: Logistic Regression and a fine-tuned BERT model. The system classifies news articles as either "Real News" or "Fake News" based on the text within an article.
 
 ## Features
 - **TF-IDF + Logistic Regression:** A baseline model using term frequency-inverse document frequency (TF-IDF) features for classification.
@@ -73,3 +73,4 @@ By considering both Accuracy and ROC-AUC, we gain a more comprehensive understan
 
 ## Contact
 For any questions or contributions, please feel free to reach out.
+
