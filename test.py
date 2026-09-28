@@ -7,7 +7,7 @@ to classify news articles as either "Real News" or "Fake News."
 Features:
 - Takes user input for testing a custom article.
 - Compares predictions from both Logistic Regression and BERT models.
-- Runs predefined test cases for benchmarking.
+- Runs predefined test cases for benchmarking. 
 """
 
 import pandas as pd
