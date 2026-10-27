@@ -1,119 +1,122 @@
 """
 Fake News Detection - Model Testing Script
 
-This script loads pre-trained models (Logistic Regression + TF-IDF and Fine-Tuned BERT)
-to classify news articles as either "Real News" or "Fake News."
-
-Features:
-- Takes user input for testing a custom article.
-- Compares predictions from both Logistic Regression and BERT models.
-- Runs predefined test cases for benchmarking.
+This script loads pre-trained Logistic Regression + TF-IDF and fine-tuned BERT
+models to classify news articles as either "Real News" or "Fake News."
 """
 
-import pandas as pd
 import joblib
 import torch
-import tensorflow as tf
-from transformers import BertTokenizer, BertForSequenceClassification
-
-# ================================
-# Step 1 - Load Pre-trained Models 
-# ================================
-
-print("Loading Logistic Regression model and TF-IDF vectorizer...")
-
-# Loads the trained Logistic Regression model and TF-IDF vectorizer
-tfidf_vectorizer = joblib.load("tfidf_vectorizer.pkl")
-logistic_model = joblib.load("logistic_regression.pkl")
-
-print("Loading fine-tuned BERT model...")
-
-# Loads a fine-tuned BERT model and tokenizer
-bert_tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-bert_model = BertForSequenceClassification.from_pretrained("./bert_finetuned")
-
-# Moves the BERT model to GPU if available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-bert_model.to(device)
-bert_model.eval()  
-
-# ================================
-# Step 2 - Define Prediction Functions
-# ================================
-
-def predict_logistic(text: str) -> str:
-    """
-    Predicts whether a given news article is real or fake using the Logistic Regression model.
-
-    Args:
-        text (str): The news article text.
-
-    Returns:
-        str: "Real News" or "Fake News" based on the model's prediction.
-    """
-    text_tfidf = tfidf_vectorizer.transform([text])  # Converts the text to TF-IDF features
-    pred = logistic_model.predict(text_tfidf)[0]  # Makes a prediction (0: Real, 1: Fake)
-    return "Fake News" if pred == 1 else "Real News"
+from transformers import BertForSequenceClassification, BertTokenizer
 
 
-def predict_bert(text: str) -> str:
-    """
-    Predicts whether a given news article is real or fake using the fine-tuned BERT model.
+class LogisticNewsClassifier:
+    """Classify news articles with a TF-IDF vectorizer and Logistic Regression."""
 
-    Args:
-        text (str): The news article text.
+    def __init__(
+        self,
+        vectorizer_path: str = "tfidf_vectorizer.pkl",
+        model_path: str = "logistic_regression.pkl",
+    ):
+        self.vectorizer = joblib.load(vectorizer_path)
+        self.model = joblib.load(model_path)
 
-    Returns:
-        str: "Real News" or "Fake News" based on the model's prediction.
-    """
-    encoded_input = bert_tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
-    encoded_input = {key: val.to(device) for key, val in encoded_input.items()}  # 
-
-    with torch.no_grad():  
-        logits = bert_model(**encoded_input).logits
-
-    pred = torch.argmax(logits, dim=1).item()  # Gets the predicted label (0: Real, 1: Fake)
-    return "Fake News" if pred == 1 else "Real News"
+    def predict(self, text: str) -> str:
+        features = self.vectorizer.transform([text])
+        prediction = self.model.predict(features)[0]
+        return "Fake News" if prediction == 1 else "Real News"
 
 
-# ================================
-# Step 3 - User Input for Custom Prediction
-# ================================
+class BertNewsClassifier:
+    """Classify news articles with the fine-tuned BERT model."""
 
-input_text = input("Enter the full news article: ")
+    def __init__(
+        self,
+        model_path: str = "./bert_finetuned",
+        tokenizer_name: str = "bert-base-uncased",
+    ):
+        self.tokenizer = BertTokenizer.from_pretrained(tokenizer_name)
+        self.model = BertForSequenceClassification.from_pretrained(model_path)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        self.model.eval()
 
-# Makes a prediction using both models
-logistic_prediction = predict_logistic(input_text)
-bert_prediction = predict_bert(input_text)
+    def predict(self, text: str) -> str:
+        encoded_input = self.tokenizer(
+            text,
+            return_tensors="pt",
+            max_length=512,
+            truncation=True,
+            padding="max_length",
+        )
+        encoded_input = {
+            key: value.to(self.device) for key, value in encoded_input.items()
+        }
 
-# Displays the Results
-print("\n--- Model Predictions ---")
-print(f"Logistic Regression Prediction: {logistic_prediction}")
-print(f"BERT Prediction: {bert_prediction}")
-print("\n--- End of Predictions ---")
+        with torch.no_grad():
+            logits = self.model(**encoded_input).logits
+
+        prediction = torch.argmax(logits, dim=1).item()
+        return "Fake News" if prediction == 1 else "Real News"
 
 
-# ================================
-# Step 4 - Predefined Test Cases for Benchmarking
-# ================================
+class FakeNewsDetector:
+    """Combine the project's classifiers to return predictions for one article."""
 
-# Articles to test the models
-test_articles = [
-    {"text": "NASA announces new mission to Mars set for 2030, focusing on human exploration.", "label": 0},  # Real
-    {"text": "Breaking: Scientists confirm the Earth is flat, sparking worldwide debate.", "label": 1},  # Fake
-]
+    def __init__(
+        self,
+        logistic_classifier: LogisticNewsClassifier,
+        bert_classifier: BertNewsClassifier,
+    ):
+        self.logistic_classifier = logistic_classifier
+        self.bert_classifier = bert_classifier
 
-# Runs the Predictions and Compare Results
-print("\n--- Testing Model Predictions ---\n")
-for article in test_articles:
-    true_label = "Fake News" if article["label"] == 1 else "Real News"
-    logistic_pred = predict_logistic(article["text"])
-    bert_pred = predict_bert(article["text"])
+    def predict(self, text: str) -> dict[str, str]:
+        return {
+            "Logistic Regression": self.logistic_classifier.predict(text),
+            "BERT": self.bert_classifier.predict(text),
+        }
 
-    print(f"\n**Article:** {article['text']}")
-    print(f"**Actual Label:** {true_label}")
-    print(f"Logistic Regression Prediction: {logistic_pred}")
-    print(f"BERT Prediction: {bert_pred}")
 
-print("\n--- Testing Completed ---")
+def main() -> None:
+    print("Loading Logistic Regression model and TF-IDF vectorizer...")
+    logistic_classifier = LogisticNewsClassifier()
 
+    print("Loading fine-tuned BERT model...")
+    bert_classifier = BertNewsClassifier()
+    detector = FakeNewsDetector(logistic_classifier, bert_classifier)
+
+    input_text = input("Enter the full news article: ")
+    predictions = detector.predict(input_text)
+
+    print("\n--- Model Predictions ---")
+    for model_name, prediction in predictions.items():
+        print(f"{model_name} Prediction: {prediction}")
+    print("\n--- End of Predictions ---")
+
+    test_articles = [
+        {
+            "text": "NASA announces new mission to Mars set for 2030, focusing on human exploration.",
+            "label": 0,
+        },
+        {
+            "text": "Breaking: Scientists confirm the Earth is flat, sparking worldwide debate.",
+            "label": 1,
+        },
+    ]
+
+    print("\n--- Testing Model Predictions ---\n")
+    for article in test_articles:
+        true_label = "Fake News" if article["label"] == 1 else "Real News"
+        article_predictions = detector.predict(article["text"])
+
+        print(f"\n**Article:** {article['text']}")
+        print(f"**Actual Label:** {true_label}")
+        for model_name, prediction in article_predictions.items():
+            print(f"{model_name} Prediction: {prediction}")
+
+    print("\n--- Testing Completed ---")
+
+
+if __name__ == "__main__":
+    main()
