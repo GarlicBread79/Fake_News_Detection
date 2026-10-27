@@ -8,7 +8,7 @@ This project implements a machine learning-based Fake News Detection System usin
 - **Fine-Tuned BERT Model:** A deep learning model that improves classification accuracy by leveraging transformer-based contextual embeddings.
 - **Model Comparison:** Evaluates both models based on accuracy and ROC-AUC scores.
 - **Visualization:** Generates bar charts comparing model performance. 
-- **Real-World Testing:** Users can input their own news articles for classification.
+- **Real-World Testing:** Users can input their own news articles for classification.  
 
 ## Tech Stack
 - **Programming Language:** Python 
