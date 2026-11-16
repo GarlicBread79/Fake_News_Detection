@@ -1,10 +1,5 @@
 """Object-oriented classifiers for fake news predictions."""
 
-import joblib
-import torch
-from transformers import BertForSequenceClassification, BertTokenizer
-
-
 class LogisticNewsClassifier:
     """Classify news articles with a TF-IDF vectorizer and Logistic Regression."""
 
@@ -13,6 +8,8 @@ class LogisticNewsClassifier:
         vectorizer_path: str = "tfidf_vectorizer.pkl",
         model_path: str = "logistic_regression.pkl",
     ):
+        import joblib
+
         self.vectorizer = joblib.load(vectorizer_path)
         self.model = joblib.load(model_path)
 
@@ -30,6 +27,10 @@ class BertNewsClassifier:
         model_path: str = "./bert_finetuned",
         tokenizer_name: str = "bert-base-uncased",
     ):
+        import torch
+        from transformers import BertForSequenceClassification, BertTokenizer
+
+        self._torch = torch
         self.tokenizer = BertTokenizer.from_pretrained(tokenizer_name)
         self.model = BertForSequenceClassification.from_pretrained(model_path)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -48,10 +49,10 @@ class BertNewsClassifier:
             key: value.to(self.device) for key, value in encoded_input.items()
         }
 
-        with torch.no_grad():
+        with self._torch.no_grad():
             logits = self.model(**encoded_input).logits
 
-        prediction = torch.argmax(logits, dim=1).item()
+        prediction = self._torch.argmax(logits, dim=1).item()
         return "Fake News" if prediction == 1 else "Real News"
 
 

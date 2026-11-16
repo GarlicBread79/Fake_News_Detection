@@ -42,3 +42,17 @@ API documentation is available at `http://127.0.0.1:8000/docs`.
 Model artifact locations can be overridden with `LOGISTIC_MODEL_PATH`,
 `VECTORIZER_PATH`, and `BERT_MODEL_PATH`. For a deployed frontend on another
 origin, set `CORS_ORIGINS` to a comma-separated list of its trusted origins.
+
+## Run checks
+
+```bash
+python -m pip install -r backend/requirements-dev.txt
+python -m pytest backend/tests
+cd frontend
+npm ci
+npm test
+npm run build
+```
+
+GitHub Actions runs the backend tests and frontend tests/build on each pull
+request and on pushes to `main`.

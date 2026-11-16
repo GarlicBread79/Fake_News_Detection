@@ -2,11 +2,22 @@ import { useEffect, useState } from "react";
 
 const MAX_ARTICLE_LENGTH = 20_000;
 
+function describeRequestError(detail) {
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item.msg).filter(Boolean).join(" ");
+  }
+  return "Could not analyze this article.";
+}
+
 export default function App() {
   const [article, setArticle] = useState("");
   const [health, setHealth] = useState("checking");
   const [predictions, setPredictions] = useState(null);
   const [error, setError] = useState("");
+  const [inputError, setInputError] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -38,6 +49,7 @@ export default function App() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setInputError(false);
     setPredictions(null);
     setLoading(true);
 
@@ -49,7 +61,8 @@ export default function App() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.detail || "Could not analyze this article.");
+        setInputError(response.status === 422);
+        throw new Error(describeRequestError(data.detail));
       }
       setPredictions(data.predictions);
     } catch (requestError) {
@@ -60,15 +73,19 @@ export default function App() {
   }
 
   const canSubmit = article.trim().length > 0 && !loading;
+  const labels = predictions ? Object.values(predictions) : [];
+  const modelsAgree = labels.length > 1 && labels.every((label) => label === labels[0]);
 
   return (
-    <main className="page-shell">
+    <>
+      <a className="skip-link" href="#main-content">Skip to article analysis</a>
+      <main className="page-shell" id="main-content">
       <header className="topbar">
         <a className="brand" href="/" aria-label="News Signal home">
           <span className="brand-mark" aria-hidden="true">N</span>
           <span>News Signal</span>
         </a>
-        <span className={`service-status status-${health}`}>
+        <span className={`service-status status-${health}`} role="status" aria-live="polite">
           <span className="status-dot" />
           {health === "ready" && "Models ready"}
           {health === "checking" && "Checking service"}
@@ -109,7 +126,13 @@ export default function App() {
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="article">Article text</label>
+          <p className="field-help" id="article-help">
+            Up to {MAX_ARTICLE_LENGTH.toLocaleString()} characters. Your article
+            is sent to the prediction API and is not saved by this app.
+          </p>
           <textarea
+            aria-describedby={error ? "article-help error-message" : "article-help"}
+            aria-invalid={inputError}
             id="article"
             name="article"
             maxLength={MAX_ARTICLE_LENGTH}
@@ -120,26 +143,32 @@ export default function App() {
             value={article}
           />
           <div className="form-footer">
-            <span className="character-count">
+            <span className="character-count" id="character-count" aria-hidden="true">
               {article.length.toLocaleString()} / {MAX_ARTICLE_LENGTH.toLocaleString()}
             </span>
-            <button disabled={!canSubmit} type="submit">
+            <button aria-busy={loading} disabled={!canSubmit} type="submit">
               {loading ? "Analyzing..." : "Analyze article"}
               {!loading && <span aria-hidden="true">→</span>}
             </button>
           </div>
         </form>
 
-        {error && <p className="error-message" role="alert">{error}</p>}
+        {error && <p className="error-message" id="error-message" role="alert">{error}</p>}
+        {loading && <p className="loading-message" role="status">Analyzing article with both models…</p>}
 
         {predictions && (
-          <section className="results" aria-live="polite">
+          <section className="results" aria-live="polite" aria-atomic="true" aria-labelledby="results-title">
             <div className="results-heading">
               <div>
                 <p className="eyebrow">ANALYSIS COMPLETE</p>
-                <h2>Model predictions</h2>
+                <h2 id="results-title">Model predictions</h2>
               </div>
             </div>
+            <p className={`signal-summary ${modelsAgree ? "signal-agreement" : "signal-disagreement"}`}>
+              {modelsAgree
+                ? "Both models returned the same label. Agreement is not proof that the article is true or false."
+                : "The models disagree. Treat this result as uncertain and verify the article with reliable sources."}
+            </p>
             <div className="result-grid">
               {Object.entries(predictions).map(([model, label]) => (
                 <article className="result-card" key={model}>
@@ -160,6 +189,7 @@ export default function App() {
         <span>News Signal</span>
         <span>Machine learning can assist research, not replace verification.</span>
       </footer>
-    </main>
+      </main>
+    </>
   );
 }
